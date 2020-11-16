@@ -1,0 +1,7 @@
+{
+    "host":"localhost",
+    "user": "root",
+    "password":"gengzhaoji3536",
+    "database": "xuexi",
+    "port": "3306"
+}
