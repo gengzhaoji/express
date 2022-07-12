@@ -13,7 +13,7 @@ module.exports = {
             oneSql(sql).then(result => {
                 resolve(result);
             }).catch(err => {
-                console.error("LoginService>>>>>>>queryService>>>>>>>" + err.message);
+                console.error("vehicle>>>>>>>queryService>>>>>>>" + err.message);
                 reject();
             })
         })
