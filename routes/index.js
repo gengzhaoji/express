@@ -10,11 +10,11 @@ const {
 /**
  * 测试路径
  */
-router.get("/", (req, res, next) => {
-  queryService(req, res, next);
+router.get("/", (req, res) => {
+  queryService(req, res);
 });
-router.get("/login", (req, res, next) => {
-  loginService(req, res, next);
+router.get("/login", (req, res) => {
+  loginService(req, res);
 });
 
 module.exports = router;
