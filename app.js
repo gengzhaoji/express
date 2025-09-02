@@ -15,10 +15,15 @@ app.use(express.static(path.join(__dirname, "views"))); //页面入口
  * 自定义跨域中间件
  */
 const allowCors = function (req, res, next) {
+  // 允许所有来源访问
   res.header("Access-Control-Allow-Origin", req.headers.origin);
+  // 默认只支持 GET, POST, HEAD 请求
   res.header("Access-Control-Allow-Methods", "GET,PUT,POST,DELETE,OPTIONS,PATCH,");
+  // 支持 application/json 格式
   res.header("Access-Control-Allow-Headers", "Content-Type");
+  // 允许携带 Authorization 请求头
   res.header("Access-Control-Expose-Headers", "Authorization");
+  // 允许携带 cookie
   res.header("Access-Control-Allow-Credentials", "true");
   next();
 };
