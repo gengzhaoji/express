@@ -8,7 +8,6 @@ const {
   loginService,
 } = require("../controllers/index/indexCtrl");
 
-
 router.get("/", (req, res) => {
   queryService(req, res);
 });
@@ -25,7 +24,7 @@ router.get("/login", (req, res) => {
 router.get("/sse", (req, res) => {
   res.setHeader("Content-Type", "text/event-stream");
   setInterval(() => {
-    res.write(`event: message\n`) // 事件名称，默认为message
+    res.write(`event: message\n`); // 事件名称，默认为message
     res.write(`data: ${new Date().toLocaleTimeString()}\n\n`);
   }, 1000);
 });
