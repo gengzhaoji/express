@@ -1,13 +1,10 @@
-const { oneSql, connect, query, close } = require("../connectDB");
+const { executeSql } = require("../connectDB");
 const vertoken = require("../token");
 
 module.exports = {
   queryService: function (data) {
     return new Promise((resolve, reject) => {
-      /**
-       * 单个sql请求方法
-       */
-      oneSql("SELECT * from user")
+      executeSql("SELECT * FROM sys_user")
         .then((result) => {
           resolve(result);
         })
@@ -15,19 +12,6 @@ module.exports = {
           console.error("index>>>>>>>queryService>>>>>>>" + err.message);
           reject();
         });
-      /**
-       * 多个sql请求方法
-       */
-      // connect()
-      //     .then(() => query('SELECT * from user'))
-      //     .then(result => {
-      //         close();
-      //         resolve(result);
-      //     }).catch(err => {
-      //         close();
-      //         console.error("index>>>>>>>queryService>>>>>>>" + err.message);
-      //         reject();
-      //     })
     });
   },
   loginService: function () {

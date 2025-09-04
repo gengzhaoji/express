@@ -1,4 +1,4 @@
-const { oneSql, connect, query, close, insertSql } = require("../connectDB");
+const { executeSql, insertSql } = require("../connectDB");
 
 module.exports = {
   /**
@@ -9,7 +9,7 @@ module.exports = {
       /**
        * 人员采集新增数据
        */
-      oneSql(insertSql(options, "personnel"))
+      insertSql(options, "personnel")
         .then((result) => {
           resolve(result);
         })
@@ -28,7 +28,7 @@ module.exports = {
       if (!!query.name) {
         sql = `SELECT * FROM personnel WHERE name LIKE "%${query.name}%" OR id LIKE "%${query.name}%" OR phone LIKE "%${query.name}%"`;
       }
-      oneSql(sql)
+      executeSql(sql)
         .then((result) => {
           resolve(result);
         })

@@ -57,7 +57,7 @@ app.use(
     getToken:  (req) => req.headers?.token
   }).unless({
     //用户第一次登录的时候不需要验证token
-    path: ["/service/login"], //不需要验证的接口名称
+    path: ["/service/","/service/login"], //不需要验证的接口名称
   })
 );
 

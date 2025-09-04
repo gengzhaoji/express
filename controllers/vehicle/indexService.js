@@ -1,4 +1,4 @@
-const { oneSql } = require("../connectDB");
+const { executeSql } = require("../connectDB");
 
 module.exports = {
   /**
@@ -10,7 +10,7 @@ module.exports = {
       if (!!query.name) {
         sql = `SELECT * FROM vehicle WHERE name LIKE "%${query.name}%" OR license_plate LIKE "%${query.name}%"`;
       }
-      oneSql(sql)
+      executeSql(sql)
         .then((result) => {
           resolve(result);
         })

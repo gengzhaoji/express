@@ -1,186 +1,241 @@
-const mysql = require('mysql')
-const config = require('./config.json')
+const mysql = require("mysql2");
+const fs = require("node:fs");
+const path = require("node:path");
+const jsyaml = require("js-yaml");
+
+// 加载数据库配置
+const config = jsyaml.load(
+  fs.readFileSync(path.resolve(__dirname, "../db.config.yaml"), "utf-8")
+);
+
+// 创建连接池
+const pool = mysql.createPool(config.db);
 
 /**
  * 数据库连接公用方法
- * connect()连接数据库
- * close()关闭数据库
- * oneSql()只有一句执行sql时可以使用，自动连接和断开数据库
- * query()执行sql的方法
- * selectSql()查询语句的拼装和执行函数
- * insertSql()新增语句的拼装和执行函数
- * updateSql()修改语句的拼装和执行函数
- * deleteSql()删除语句的拼装和执行函数
+ * connect() 连接数据库
+ * query() 执行sql的方法
+ * selectSql() 查询语句的拼装和执行函数
+ * insertSql() 新增语句的拼装和执行函数
+ * updateSql() 修改语句的拼装和执行函数
+ * deleteSql() 删除语句的拼装和执行函数
+ * executeTransaction() 执行事务
  */
-class Connect {
-    constructor({
-        //本地mysql数据库
-        host = config.host,
-        user = config.user,
-        password = config.password,
-        database = config.database, //数据库名
-        port = config.port,
-        useConnectionPooling = true
-    } = {}) {
-        this.config = {
-            host,
-            user,
-            password,
-            database,
-            port,
-            useConnectionPooling
-        };
-        this.connection = null;
-    }
-    //1.建立连接
-    connect() {
-        //创建服务器连接，将连接对象，赋值给conn
-        this.connection = mysql.createConnection(this.config);
-        return new Promise((resolve, reject) => {
-            //建立连接
-            this.connection.connect(err => {
-                if (err) {
-                    console.error('数据库链接失败错误:' + err.stack);
-                    reject(err);
-                } else {
-                    console.log('数据库链接成功***********connected as id ' + this.connection.threadId);
-                    resolve();
-                }
-            });
-        });
-    };
-    //3.关闭连接
-    close() {
-        return new Promise((resolve, reject) => {
-            //建立连接
-            this.connection.end(err => {
-                if (err) {
-                    console.error('数据库断开错误:' + err.stack);
-                    reject(err);
-                } else {
-                    console.log('数据库链接断开***********connected as id ' + this.connection.threadId);
-                    resolve();
-                }
-            });
-        });
-    };
-    /**
-     * 
-     * @param 只有一条sql语句的执行时  自动连接数据库和断开数据库
-     */
-    oneSql(sql) {
-        return new Promise((resolve, reject) => {
-            this.connect().then(() => this._operation(sql)).then(data => {
-                resolve(data);
-            }).catch(err => {
-                reject(err)
-            }).finally(() => this.close())
-        })
-    }
-    /**
-     * 
-     * @param String sql 
-     */
-    query(sql) {
-        return this._operation(sql);
-    }
-    /**
-     * array = Array
-     * table = String
-     * where = { key: value }
-     * link = 'AND' or 'OR' default 'AND'
-     */
-    selectSql(array, table, where, link) {
-        let sql = "SELECT ";
-        array.forEach(((value, index) => {
-            if (index === 0) {
-                sql += value;
-            } else {
-                sql += ',' + value
-            }
-        }));
-        sql += ' FROM ' + table;
-        if (where) {
-            sql += this._handleWhereString(where, link);
-        }
-        return sql;
-    }
-    /**
-     * @param { key: value } info 
-     * @param String  table 
-     */
-    insertSql(info, table) {
-        let keyArray = [];
-        let valueArray = [];
-        Object.keys(info).forEach((key) => {
-            keyArray.push(key);
-            valueArray.push("'" + info[key] + "'");
-        });
-        let keyStr = keyArray.join(',');
-        let valueStr = valueArray.join(',');
-        let sql = `INSERT INTO ${table} (${keyStr}) VALUES (${valueStr})`
-        return sql
-    }
-    /**
-     * 
-     * @param { key: value } info 
-     * @param String table 
-     * @param { key: value } where 
-     * @param 'AND' or 'OR' default 'AND' link 
-     */
-    updateSql(info, table, where, link) {
-        let sql = "UPDATE " + table + " SET ";
-        let sqlArray = [];
-        Object.keys(info).forEach((key) => {
-            sqlArray.push(key + "='" + info[key] + "'");
-        });
-        sql += sqlArray.join(',');
-        if (where) {
-            sql += this._handleWhereString(where, link);
-        }
-        return this._operation(sql);
-    }
-    /**
-      * 
-      * @param { key: value } info 
-      * @param String table 
-      * @param { key: value } where 
-      * @param 'AND' or 'OR' default 'AND' link 
-      */
-    deleteSql(info, table, where, link) {
-        let sql = "DELETE FROM " + table;
-        if (where) {
-            sql += this._handleWhereString(where, link);
-        }
-        return this._operation(sql);
-    }
-    _operation(sql) {
-        return new Promise((resolve, reject) => {
-            this.connection.query(sql, (error, result, fields) => {
-                if (error) {
-                    reject(error.message);
-                } else {
-                    resolve(result);
-                }
-            });
-        })
-    }
 
-    _handleWhereString(where, link) {
-        let str = "";
-        let whereArray = [];
-        Object.keys(where).forEach((key) => {
-            whereArray.push(String(key + "='" + where[key] + "'"));
-        });
-        if (link) {
-            let whereStr = whereArray.join(" " + link + " ");
-            str += " WHERE " + whereStr;
-        } else {
-            let whereStr = whereArray.join(" AND ");
-            str += " WHERE " + whereStr;
-        }
-        return str;
-    }
+/**
+ * 建立数据库连接的函数
+ * @returns {Promise} 返回一个Promise对象，用于处理连接成功或失败的情况
+ */
+function connect() {
+  return new Promise((resolve, reject) => {
+    pool.getConnection((err, connection) => {
+      if (err) {
+        console.error("数据库链接失败错误:" + err.stack);
+        reject(err);
+      } else {
+        console.log(
+          "数据库链接成功***********connected as id " + connection.threadId
+        );
+        resolve(connection);
+      }
+    });
+  });
 }
 
-module.exports = new Connect();
+/**
+ * 执行sql的方法
+ * @param {string} sql - SQL语句
+ * @param {array} params - 参数数组
+ * @param {object} connection - 可选的事务连接
+ * @returns {Promise}
+ */
+function executeSql(sql, params = [], connection = null) {
+  return _operation(sql, params, connection);
+}
+
+/**
+ * 查询语句的拼装和执行函数
+ * @param {array} array - 查询字段数组
+ * @param {string} table - 表名
+ * @param {object} where - 查询条件 {key: value}
+ * @param {string} link - 连接条件 'AND' or 'OR'，默认为 'AND'
+ * @param {object} connection - 可选的事务连接
+ * @returns {Promise}
+ */
+function selectSql(
+  array,
+  table,
+  where = null,
+  link = "AND",
+  connection = null
+) {
+  let sql = "SELECT ";
+  sql += array.join(", ");
+  sql += " FROM " + table;
+
+  if (where) {
+    const whereClause = _handleWhereString(where, link);
+    sql += whereClause.sql;
+    return _operation(sql, whereClause.values, connection);
+  }
+
+  return _operation(sql, [], connection);
+}
+
+/**
+ * 新增语句的拼装和执行函数
+ * @param {object} info - 插入数据 {key: value}
+ * @param {string} table - 表名
+ * @param {object} connection - 可选的事务连接
+ * @returns {Promise}
+ */
+function insertSql(info, table, connection = null) {
+  const keys = Object.keys(info);
+  const values = Object.values(info);
+  const placeholders = values.map(() => "?").join(",");
+
+  const sql = `INSERT INTO ${table} (${keys.join(
+    ","
+  )}) VALUES (${placeholders})`;
+  return _operation(sql, values, connection);
+}
+
+/**
+ * 修改语句的拼装和执行函数
+ * @param {object} info - 更新数据 {key: value}
+ * @param {string} table - 表名
+ * @param {object} where - 查询条件 {key: value}
+ * @param {string} link - 连接条件 'AND' or 'OR'，默认为 'AND'
+ * @param {object} connection - 可选的事务连接
+ * @returns {Promise}
+ */
+function updateSql(info, table, where = null, link = "AND", connection = null) {
+  const setClause = Object.keys(info)
+    .map((key) => `${key} = ?`)
+    .join(", ");
+
+  const values = Object.values(info);
+  let sql = `UPDATE ${table} SET ${setClause}`;
+
+  if (where) {
+    const whereClause = _handleWhereString(where, link);
+    sql += whereClause.sql;
+    values.push(...whereClause.values);
+  }
+
+  return _operation(sql, values, connection);
+}
+
+/**
+ * 删除语句的拼装和执行函数
+ * @param {string} table - 表名
+ * @param {object} where - 查询条件 {key: value}
+ * @param {string} link - 连接条件 'AND' or 'OR'，默认为 'AND'
+ * @param {object} connection - 可选的事务连接
+ * @returns {Promise}
+ */
+function deleteSql(table, where = null, link = "AND", connection = null) {
+  let sql = `DELETE FROM ${table}`;
+  const values = [];
+
+  if (where) {
+    const whereClause = _handleWhereString(where, link);
+    sql += whereClause.sql;
+    values.push(...whereClause.values);
+  }
+
+  return _operation(sql, values, connection);
+}
+
+/**
+ * 执行事务
+ * @param {function} transactionFn - 包含事务操作的函数
+ * @returns {Promise}
+ */
+async function executeTransaction(transactionFn) {
+  const connection = await connect();
+
+  try {
+    await connection.beginTransaction();
+    console.log("事务开始");
+
+    // 执行事务操作
+    const result = await transactionFn(connection);
+
+    await connection.commit();
+    console.log("事务提交成功");
+
+    return result;
+  } catch (error) {
+    await connection.rollback();
+    console.error("事务回滚:", error.message);
+    throw error;
+  } finally {
+    connection.release();
+    console.log("连接已释放");
+  }
+}
+
+/**
+ * sql语句执行函数（内部使用）
+ * @param {string} sql - SQL语句
+ * @param {array} params - 参数数组
+ * @param {object} connection - 可选的事务连接
+ * @returns {Promise}
+ */
+function _operation(sql, params = [], connection = null) {
+  return new Promise((resolve, reject) => {
+    const executeQuery = (conn) => {
+      conn.execute(sql, params, (error, result, fields) => {
+        if (error) {
+          reject(error);
+        } else {
+          resolve(result);
+        }
+
+        // 如果不是事务连接，使用后释放
+        if (!connection) {
+          conn.release();
+          console.log("连接池已释放");
+        }
+      });
+    };
+
+    if (connection) {
+      // 使用现有连接（事务中）
+      executeQuery(connection);
+    } else {
+      // 创建新连接
+      connect().then(executeQuery).catch(reject);
+    }
+  });
+}
+
+/**
+ * where条件拼接函数（内部使用）
+ * @param {object} where - 查询条件 {key: value}
+ * @param {string} link - 连接条件 'AND' or 'OR'
+ * @returns {object} 包含sql和values的对象
+ */
+function _handleWhereString(where, link = "AND") {
+  const conditions = Object.keys(where)
+    .map((key) => `${key} = ?`)
+    .join(` ${link} `);
+
+  const values = Object.values(where);
+
+  return {
+    sql: conditions ? ` WHERE ${conditions}` : "",
+    values: values,
+  };
+}
+
+module.exports = {
+  connect,
+  executeSql,
+  selectSql,
+  insertSql,
+  updateSql,
+  deleteSql,
+  executeTransaction,
+};
